@@ -53,8 +53,8 @@ class Game:
         x = 0
         y = 0
         while(True):
-            x = math.floor(random.randint(0, sett.WIDTH)/sett.TILE_SIZE)
-            y = math.floor(random.randint(0, sett.HEIGHT)/sett.TILE_SIZE)
+            x = math.floor(random.randint(0, sett.WIDTH-sett.TILE_SIZE)/sett.TILE_SIZE)
+            y = math.floor(random.randint(0, sett.HEIGHT-sett.TILE_SIZE)/sett.TILE_SIZE)
 
             if(self.__isPosTaken(x, y)):
                 continue
