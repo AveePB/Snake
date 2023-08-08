@@ -7,7 +7,7 @@ it becomes and the higher the score.
 
 How to Play:
 -To start the game, run the main.py file using Python. You can do this by navigating to 
-the directory where the file is located and running the following command:python snake.py
+the directory where the file is located and running the following command:python main.py
 -Once the game starts, use the arrow keys to control the snake. The up arrow moves the 
 snake upwards, the down arrow moves it downwards, the left arrow moves it to the left, 
 and the right arrow moves it to the right.
