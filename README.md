@@ -24,7 +24,8 @@ pip install pygame
 ```
 
 ## Customization:
-If you want to customize the game, you can do so by modifying the values in the settings.py file.
+If you want to customize the game, you can do so by modifying the values in the configuration file 
+(***.\gameplay\settings.py***).
 
 ### Credits:
 This game was created by AveePB using Python and the Pygame library. The original Snake 
