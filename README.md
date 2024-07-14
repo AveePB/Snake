@@ -4,6 +4,8 @@ The objective of the game is to eat as many pieces of food as possible without r
 into the walls or the snake's own tail. The more food the snake eats, the longer 
 it becomes and the higher the score.
 
+![Snake-Gameplay](./img.png).
+
 ## How to Play:
 - To start the game, run the main.py file using Python. You can do this by navigating to 
 the directory where the file is located and running the following command:
