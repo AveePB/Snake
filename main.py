@@ -6,6 +6,7 @@ import pygame
 # Set game parameters
 pygame.init()
 screen = pygame.display.set_mode(WINDOW_SIZE)
+pygame.display.set_caption('Snake')
 clock = pygame.time.Clock()
 running = True
 game = Game()

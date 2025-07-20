@@ -72,15 +72,18 @@ class Snake:
         Moves the snake one block in the current direction.
         The head moves, and body parts follow automatically via set_pos().
         """
+        width, height = (len(self.__gameMap[0]) - 2)*TILE_SIZE, (len(self.__gameMap) - 2)*TILE_SIZE
         x, y = self.__head.rect.topleft
-
-        if self.__currDirection is SnakeDirection.UP:
+        
+        if x < 0 or x >= width or y < 0 or y >= height: return 
+        
+        if self.__currDirection == SnakeDirection.UP:
             self.__head.set_pos((x, y - TILE_SIZE))
-        elif self.__currDirection is SnakeDirection.DOWN:
+        elif self.__currDirection == SnakeDirection.DOWN:
             self.__head.set_pos((x, y + TILE_SIZE))
-        elif self.__currDirection is SnakeDirection.LEFT:
+        elif self.__currDirection == SnakeDirection.LEFT:
             self.__head.set_pos((x - TILE_SIZE, y))
-        elif self.__currDirection is SnakeDirection.RIGHT:
+        elif self.__currDirection == SnakeDirection.RIGHT:
             self.__head.set_pos((x + TILE_SIZE, y))
 
     def set_direction(self, direction):
