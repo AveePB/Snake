@@ -1,32 +1,24 @@
-from snake.consts import WINDOW_SIZE, FPS
-from snake.game import Game, GameMode
-
+from snake.game import Gameplay
+import snake.gui as gui
 import pygame
 
 # Set game parameters
-pygame.init()
-screen = pygame.display.set_mode(WINDOW_SIZE)
+screen = pygame.display.set_mode(gui.WINDOW_SIZE)
 pygame.display.set_caption('Snake')
 clock = pygame.time.Clock()
-running = True
-game = Game()
+
+gameplay = Gameplay()
 
 # Start the game
-while running:
-    # Close window
-    if (game.getCurrMode() == GameMode.EXIT):
-        running = False
+while True:
+    # Close application
+    if gameplay.runLogic(False):
+        break
 
-    # Game is at menu point
-    elif (game.getCurrMode() == GameMode.MENU):
-        game.menu(screen)
-
-    # Interaction with game
-    else:
-        game.run(screen) 
+    gameplay.draw(screen)
 
     # Complete rendering 
     pygame.display.flip()
-    clock.tick(FPS)
+    clock.tick(10)
 
 pygame.quit()
