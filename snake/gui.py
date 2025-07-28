@@ -1,8 +1,7 @@
-"""
-Module contains draw methods that are useful to handle game drawings.
-"""
 import pygame
 pygame.init()
+
+SNAKE_IMG_PATH = './assets/image/snake.png'
 
 # Color constants
 DARK_BLUE = pygame.Color(2, 61, 163)
@@ -41,14 +40,35 @@ def drawBackground(screen):
 def drawMenu(screen):
     # Create text labels
     title = BIG_FONT.render("Choose Game Mode", True, 'white')
-    player_option = MID_FONT.render("Press SPACE to Play as Player", True, 'white')
-    ai_option = MID_FONT.render("Press 0 to Train AI", True, 'white')
-    menu_img = pygame.image.load('./assets/image/snake-menu.png')
+    player_option = MID_FONT.render("Press 0 to Play as Player", True, 'white')
+    ai_option = MID_FONT.render("Press 1 to Play as AI Agent", True, 'white')
+    training_option = MID_FONT.render("Press 2 to train AI Agent", True, 'white')
+
+    menu_img = pygame.image.load(SNAKE_IMG_PATH)
     menu_img = pygame.transform.scale(menu_img, MENU_IMG_SIZE)
 
     # Draw elements
     drawBackground(screen)
     screen.blit(menu_img, (WINDOW_SIZE[0] // 2 - menu_img.get_width() // 2, 50))
     screen.blit(title, (WINDOW_SIZE[0] // 2 - title.get_width() // 2, 350))
-    screen.blit(player_option, (WINDOW_SIZE[0] // 2 - player_option.get_width() // 2, 450))
-    screen.blit(ai_option, (WINDOW_SIZE[0] // 2 - ai_option.get_width() // 2, 520))
+    screen.blit(player_option, (WINDOW_SIZE[0] // 2 - player_option.get_width() // 2, 420))
+    screen.blit(ai_option, (WINDOW_SIZE[0] // 2 - ai_option.get_width() // 2, 470))
+    screen.blit(training_option, (WINDOW_SIZE[0] // 2 - training_option.get_width() // 2, 520))
+
+def drawPause(screen):
+    title = BIG_FONT.render("Game Pause", True, 'white')
+    unpause_option = MID_FONT.render("Press ESC to unpause", True, 'white')
+    go_back_option = MID_FONT.render("Press 0 to go back to menu", True, 'white')
+
+    screen.blit(title, (WINDOW_SIZE[0] // 2 - title.get_width() // 2, 150))
+    screen.blit(unpause_option, (WINDOW_SIZE[0] // 2 - unpause_option.get_width() // 2, 220))
+    screen.blit(go_back_option, (WINDOW_SIZE[0] // 2 - go_back_option.get_width() // 2, 270))
+
+def drawGameOver(screen, score):
+    title = BIG_FONT.render("Gameover", True, 'white')
+    unpause_option = MID_FONT.render(f"Your score: {score}", True, 'white')
+    go_back_option = MID_FONT.render("Press space to continue", True, 'white')
+
+    screen.blit(title, (WINDOW_SIZE[0] // 2 - title.get_width() // 2, 150))
+    screen.blit(unpause_option, (WINDOW_SIZE[0] // 2 - unpause_option.get_width() // 2, 220))
+    screen.blit(go_back_option, (WINDOW_SIZE[0] // 2 - go_back_option.get_width() // 2, 270))

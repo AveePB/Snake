@@ -7,8 +7,6 @@ import numpy as np
 import random 
 import pygame
 
-NN_MODEL_NAME = '340.pth'
-
 class Gameplay:
 
     class Direction(Enum):
@@ -21,6 +19,11 @@ class Gameplay:
         PLAYER = 0,
         AI = 1,
         AI_TRAINING = 2,
+
+    class AppStage(Enum):
+        MENU = 0,
+        EXIT = 1,
+        GAME = 2,
 
     def __init__(self):
         # Initialize snake with size 3
@@ -78,12 +81,35 @@ class Gameplay:
                 self.apple = sprite.AppleSprite(row, col)
                 break
     
-    def readUserInput(self, playerMode = True):
+    def readUserInput(self, screen, playerMode = True):
         # Handle user input
         for event in pygame.event.get():
             # User clicks X
             if event.type == pygame.QUIT:
-                return True
+                return Gameplay.AppStage.EXIT
+            
+            # User wants to pause game
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                gui.drawPause(screen)
+                pygame.display.flip()
+                is_paused = True
+
+                # Freeze game
+                while is_paused:
+                    # Handle subevent
+                    for subevent in pygame.event.get():
+                        # User clicks X
+                        if subevent.type == pygame.QUIT:
+                            return Gameplay.AppStage.EXIT
+                        
+                        # User wants to unpause game
+                        elif subevent.type == pygame.KEYDOWN and subevent.key == pygame.K_ESCAPE:
+                            is_paused = False
+                            break
+
+                        # User wants to go to menu
+                        elif subevent.type == pygame.KEYDOWN and subevent.key == pygame.K_0:
+                            return Gameplay.AppStage.MENU                            
             
             # User controls snake
             elif playerMode and event.type == pygame.KEYDOWN:
@@ -103,7 +129,7 @@ class Gameplay:
                 elif event.key == pygame.K_RIGHT:
                     self.snake_direction = Gameplay.Direction.RIGHT
         
-        return False
+        return Gameplay.AppStage.GAME
     
     def readAgentInput(self, is_training):
         # Handle AI input
@@ -185,21 +211,24 @@ class Gameplay:
                 self.record = self.score
                 self.agent.model.save(f'{self.record}.pth')
         
-    def runLogic(self, gamemode):
+    def runLogic(self, gamemode, screen):
         state_old, action = None, None
 
         # User controls snake
         if gamemode == Gameplay.Mode.PLAYER:
-            if self.readUserInput(playerMode=True): return True
+            appStage = self.readUserInput(screen, playerMode=True)
+            if appStage != Gameplay.AppStage.GAME: return appStage
         
         # AI controls snake
         elif gamemode == Gameplay.Mode.AI:
-            if self.readUserInput(playerMode=False): return True
+            appStage = self.readUserInput(screen, playerMode=False)
+            if appStage != Gameplay.AppStage.GAME: return appStage
             self.readAgentInput(is_training=False)
         
         # AI trains
         else:
-            if self.readUserInput(playerMode=False): return True
+            appStage = self.readUserInput(screen, playerMode=False)
+            if appStage != Gameplay.AppStage.GAME: return appStage
             state_old, action = self.readAgentInput(is_training=True) 
 
         # Snake moves up 
@@ -250,9 +279,28 @@ class Gameplay:
             self.trainAgent(state_old, action, reward, state_new, is_gameover)
 
         if is_gameover:
+            # Show gameover screen
+            if not(gamemode == Gameplay.Mode.AI_TRAINING):
+                # Draw gameover
+                gui.drawGameOver(screen, self.score + 10)
+                pygame.display.flip()
+
+                # Freeze screen
+                is_freezed = True
+                while is_freezed:
+                    for event in pygame.event.get():
+                        # User clicks X
+                        if event.type == pygame.QUIT:
+                            return Gameplay.AppStage.EXIT
+                        
+                        # User wants to unpause game
+                        elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                            is_freezed = False
+                            break
+
             self.resetParameters()
         
-        return False
+        return Gameplay.AppStage.GAME
     
     def resetParameters(self):
         # Reset game parameters
