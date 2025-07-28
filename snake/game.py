@@ -1,288 +1,338 @@
-from snake.consts import WINDOW_SIZE, MENU_IMG_SIZE, APPLE_SPAWN_LIMIT, TILE_SIZE, OBSTACLE_HASH, APPLE_HASH, NO_HASH
-from snake.snake import SnakeDirection, Snake
-from snake.sprites import Apple, SnakeEvent
+from snake.agent import Agent
+import snake.sprite as sprite
+import snake.gui as gui
 
 from enum import Enum
-import random
+import numpy as np
+import random 
 import pygame
 
-class GameMode(Enum):
-    """Enum representing different game states."""
-    MENU = 1
-    GAME_PLAYER = 2
-    GAME_AI = 3
-    EXIT = 4
+class Gameplay:
 
-class Game:
-    """
-    Handels game dynamic and switching between game states.
-    """
+    class Direction(Enum):
+        UP = 0,
+        DOWN = 1,
+        LEFT = 2,
+        RIGHT = 3,
+    
+    class Mode(Enum):
+        PLAYER = 0,
+        AI = 1,
+        AI_TRAINING = 2,
+
+    class AppStage(Enum):
+        MENU = 0,
+        EXIT = 1,
+        GAME = 2,
 
     def __init__(self):
-        """
-            It is responsible for initialization of the game.
-        """
+        # Initialize snake with size 3
+        self.snake = sprite.SnakeSprite(gui.N_ROWS // 2, gui.N_COLS // 2)
+        self.snake_direction = random.choice([Gameplay.Direction.UP, Gameplay.Direction.DOWN, Gameplay.Direction.LEFT, Gameplay.Direction.RIGHT])
 
-        # Initialization of the game fonts
-        self.__bigFont = pygame.font.Font('./assets/font/game-font.ttf', size=20)
-        self.__midFont = pygame.font.Font('./assets/font/game-font.ttf')
-        self.__smallFont = pygame.font.Font('./assets/font/game-font.ttf')
+        # Set snake to go up
+        if self.snake_direction == Gameplay.Direction.UP:
+            self.snake.next_sprite = sprite.SnakeSprite(gui.N_ROWS // 2 + 1, gui.N_COLS // 2)
+            self.snake.next_sprite.next_sprite = sprite.SnakeSprite(gui.N_ROWS // 2 + 2, gui.N_COLS // 2)
 
-        # Initialization of the game parameters
-        self.__currMode = GameMode.MENU
-        self.__prevMode = None
-        self.__score = 0
-        self.__snake = None
-        self.__apples = None
-        self.__gameMap = None
+        # Set snake to go down
+        elif self.snake_direction == Gameplay.Direction.DOWN:
+            self.snake.next_sprite = sprite.SnakeSprite(gui.N_ROWS // 2 - 1, gui.N_COLS // 2)
+            self.snake.next_sprite.next_sprite = sprite.SnakeSprite(gui.N_ROWS // 2 - 2, gui.N_COLS // 2)    
+        
+        # Set snake to go left
+        elif self.snake_direction == Gameplay.Direction.LEFT:
+            self.snake.next_sprite = sprite.SnakeSprite(gui.N_ROWS // 2, gui.N_COLS // 2 + 1)
+            self.snake.next_sprite.next_sprite = sprite.SnakeSprite(gui.N_ROWS // 2, gui.N_COLS // 2 + 2)
+
+        # Set snake to go right
+        else:
+            self.snake.next_sprite = sprite.SnakeSprite(gui.N_ROWS // 2, gui.N_COLS // 2 - 1)
+            self.snake.next_sprite.next_sprite = sprite.SnakeSprite(gui.N_ROWS // 2, gui.N_COLS // 2 - 2)
+        
+        # Initialize apple
+        self.apple = None
+        self.spawnApple()
+
+        # Initialize game parameters
+        self.agent = Agent()
+        self.score = 0
+        self.record = 0
+
+    def spawnApple(self):
+        # Try to find free spot for apple
+        while True:
+            # Choose random position
+            row = random.randint(0, gui.N_ROWS - 1)
+            col = random.randint(0, gui.N_COLS - 1)
+
+            is_collision = False
+            root = self.snake
+
+            # Check if apple collides with snake
+            while root != None:
+                if root.curr_row == row and root.curr_col == col:
+                    is_collision = True
+                    break
+                root = root.next_sprite
+
+            # Spawn apple if position is okay
+            if not is_collision:
+                self.apple = sprite.AppleSprite(row, col)
+                break
     
-    def getCurrMode(self):
-        """
-        Getter function of current game mode.
-        """
-        return self.__currMode
-
-    def setCurrMode(self, mode):
-        """
-        Setter function of current game mode.
-
-        Args:
-            mode (GameMode): constant representing the current game mode.
-        """
-        # Update mode info
-        self.__prevMode = self.__currMode
-        self.__currMode = mode
-    
-    def spawnApples(self):
-        """
-        Spawns a few apples on the map.
-        """
-        # Get window info
-        width, height = WINDOW_SIZE[0], WINDOW_SIZE[1]
-
-        # Spawn a few apples
-        for _ in range(random.randint(1, APPLE_SPAWN_LIMIT)):
-            is_generated = False
-            # Generate till you find a safe spot
-            while not is_generated:
-                x = random.randint(0, width // TILE_SIZE)*TILE_SIZE
-                y = random.randint(0, height // TILE_SIZE)*TILE_SIZE
-
-                if (self.__gameMap[y // TILE_SIZE + 1][x // TILE_SIZE + 1] == NO_HASH):
-                    is_generated = True
-
-            self.__apples.add(Apple(x, y, self.__gameMap))
-
-    def resetGame(self):
-        """
-        Resets the game
-        """
-        # Get window info
-        width, height = WINDOW_SIZE[0], WINDOW_SIZE[1]
-   
-        # Full reset of the game parameters.
-        self.__score = 0
-
-        # Set up game map
-        n_cols, n_rows = (width // TILE_SIZE) + 2, (height // TILE_SIZE) + 2
-        self.__gameMap = []
-        
-        for _ in range(n_rows):
-            arr = []
-            for _ in range(n_cols): arr.append(NO_HASH)
-            self.__gameMap.append(arr)
-
-        # Mark forbidden fields
-        for i in range(n_cols): self.__gameMap[0][i] = self.__gameMap[n_rows-1][i] = OBSTACLE_HASH
-        for i in range(n_rows): self.__gameMap[i][0] = self.__gameMap[i][n_cols-1] = OBSTACLE_HASH
-
-        # Prepare sprites before the game
-        self.__snake = Snake(self.__gameMap)
-        self.__apples = pygame.sprite.Group()
-        self.spawnApples()
-
-    def drawBackground(self, screen: pygame.surface.Surface):
-        """
-        Draws background like chess board.
-
-        Args:
-            screen (pygame.Surface): The display surface to draw on.
-        """
-
-        width, height = WINDOW_SIZE[0], WINDOW_SIZE[1]
-        isLight = True
-
-        # Draw chess board
-        for j in range(height // TILE_SIZE):
-            isLight = (j % 2 == 0)  # reset at the start of each row
-            for i in range(width // TILE_SIZE):
-                color = pygame.Color(2, 40, 105) if isLight else pygame.Color(2, 61, 163)
-                pygame.draw.rect(screen, color, (i * TILE_SIZE, j * TILE_SIZE, TILE_SIZE, TILE_SIZE))
-                isLight = not isLight
-
-
-    def menu(self, screen: pygame.surface.Surface):
-        """
-        It shows menu on the screen and handles its events.
-
-        Args:
-            screen (pygame.Surface): The display surface to draw on.
-        """
-        # Get window info
-        width, height = WINDOW_SIZE[0], WINDOW_SIZE[1]
-        self.resetGame()
-        
-        # Wait till user chooses something
-        for event in pygame.event.get():
-            # User closes the window
-            if event.type == pygame.QUIT:
-                self.setCurrMode(GameMode.EXIT)
-                return
-                
-            # User provides us input
-            elif event.type == pygame.KEYDOWN:
-                    # Runs AI mode
-                if event.key == pygame.K_0:
-                    self.setCurrMode(GameMode.GAME_AI)
-                    return
-                    
-                # Runs Player mode  
-                elif event.key == pygame.K_SPACE:
-                    self.setCurrMode(GameMode.GAME_PLAYER)
-                    return
-
-        # Render GUI
-        self.drawBackground(screen)
-            
-        # Create text labels
-        title = self.__bigFont.render("Choose Game Mode", True, 'white')
-        player_option = self.__midFont.render("Press SPACE to Play as Player", True, 'white')
-        ai_option = self.__midFont.render("Press 0 to Train AI", True, 'white')
-        menu_img = pygame.image.load('./assets/image/snake-menu.png')
-        menu_img = pygame.transform.scale(menu_img, MENU_IMG_SIZE)
-
-        # Complete rendering
-        screen.blit(menu_img, (width // 2 - menu_img.get_width() // 2, 50))
-        screen.blit(title, (width // 2 - title.get_width() // 2, 350))
-        screen.blit(player_option, (width // 2 - player_option.get_width() // 2, 450))
-        screen.blit(ai_option, (width // 2 - ai_option.get_width() // 2, 520))
-        
-    def run(self, screen: pygame.surface.Surface):
-        """
-        It handles input and keeps game playing.
-
-        Args:
-            screen (pygame.Surface): The display surface to draw on.
-        """
-        # Get window size
-        width, height = WINDOW_SIZE[0], WINDOW_SIZE[1]
-
+    def readUserInput(self, screen, playerMode = True):
         # Handle user input
         for event in pygame.event.get():
-            # Window is closed
+            # User clicks X
             if event.type == pygame.QUIT:
-                self.setCurrMode(GameMode.EXIT)
-                return
-
-            # Handle user input                
-            elif event.type == pygame.KEYDOWN:
-                # User forces snake to go up
-                if event.key == pygame.K_UP and self.__currMode == GameMode.GAME_PLAYER:
-                    self.__snake.set_direction(SnakeDirection.UP)
-                
-                # User forces snake to go down
-                elif event.key == pygame.K_DOWN and self.__currMode == GameMode.GAME_PLAYER:
-                    self.__snake.set_direction(SnakeDirection.DOWN)
-                
-                # User forces snake to go left
-                elif event.key == pygame.K_LEFT and self.__currMode == GameMode.GAME_PLAYER:
-                    self.__snake.set_direction(SnakeDirection.LEFT)
-                
-                # User forces snake to go right
-                elif event.key == pygame.K_RIGHT and self.__currMode == GameMode.GAME_PLAYER:
-                    self.__snake.set_direction(SnakeDirection.RIGHT)
+                return Gameplay.AppStage.EXIT
             
-                # User wants to pasue the game
-                elif event.key == pygame.K_ESCAPE:
-                    # Pause the game until user chooses something
-                    while True:
-                
-                        # Handle user input
-                        for event in pygame.event.get():
-                            # Window is closed
-                            if event.type == pygame.QUIT:
-                                self.setCurrMode(GameMode.EXIT)
-                                return
-                            
-                            # Go back to menu (ENTER)
-                            elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
-                                self.setCurrMode(GameMode.MENU)
-                                return
-                            
-                            # Go back to game (ESC)
-                            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                                return
-                        
-                        # Render GUI
-                        pasue_title = self.__bigFont.render('Game Pause', True, 'white')
-                        back_to_game_option = self.__midFont.render('Press ESCAPE to go back to the game', True, 'white')
-                        back_to_menu_option = self.__midFont.render('Press ENTER to go back to the menu', True, 'white')
-
-                        screen.blit(pasue_title, (width // 2 - pasue_title.get_width() // 2, 150))
-                        screen.blit(back_to_game_option, (width // 2 - back_to_game_option.get_width() // 2, 250))
-                        screen.blit(back_to_menu_option, (width // 2 - back_to_menu_option.get_width() // 2, 300))
-                        pygame.display.flip()
-
-        # Force snake to move
-        self.__snake.move()
-
-        # Handle snake events
-        snakeEvent = self.__snake.handleEvents(self.__apples, WINDOW_SIZE)
-
-        # Update score and spawn apples
-        if (snakeEvent == SnakeEvent.SCORE_UPDATE):
-            self.spawnApples()
-            self.__score += 100
-
-        # Game over
-        elif (snakeEvent == SnakeEvent.GAME_OVER):
-            # Pause the game until user chooses something
-            if (self.getCurrMode() == GameMode.GAME_PLAYER):
-                # Render GUI
-                gameover_title = self.__bigFont.render('Game over', True, 'white')
-                score_surf = self.__midFont.render(f'Your score is {self.__score}', True, 'white')
-                back_to_menu_option = self.__midFont.render('Press SPACE to go back to the menu', True, 'white')
-
-                screen.blit(gameover_title, (width // 2 - gameover_title.get_width() // 2, 150))
-                screen.blit(score_surf, (width // 2 - score_surf.get_width() // 2, 225))
-                screen.blit(back_to_menu_option, (width // 2 - back_to_menu_option.get_width() // 2, 275))
+            # User wants to pause game
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                gui.drawPause(screen)
                 pygame.display.flip()
+                is_paused = True
+
+                # Freeze game
+                while is_paused:
+                    # Handle subevent
+                    for subevent in pygame.event.get():
+                        # User clicks X
+                        if subevent.type == pygame.QUIT:
+                            return Gameplay.AppStage.EXIT
+                        
+                        # User wants to unpause game
+                        elif subevent.type == pygame.KEYDOWN and subevent.key == pygame.K_ESCAPE:
+                            is_paused = False
+                            break
+
+                        # User wants to go to menu
+                        elif subevent.type == pygame.KEYDOWN and subevent.key == pygame.K_0:
+                            return Gameplay.AppStage.MENU                            
             
-                while True:
-                    # Handle user input
+            # User controls snake
+            elif playerMode and event.type == pygame.KEYDOWN:
+                # Set snake direction to UP
+                if event.key == pygame.K_UP:
+                    self.snake_direction = Gameplay.Direction.UP
+
+                # Set snake direction to DOWN
+                elif event.key == pygame.K_DOWN:
+                    self.snake_direction = Gameplay.Direction.DOWN
+
+                # Set snake direction to LEFT
+                elif event.key == pygame.K_LEFT:
+                    self.snake_direction = Gameplay.Direction.LEFT
+                
+                # Set snake direction to RIGHT
+                elif event.key == pygame.K_RIGHT:
+                    self.snake_direction = Gameplay.Direction.RIGHT
+        
+        return Gameplay.AppStage.GAME
+    
+    def readAgentInput(self, is_training):
+        # Handle AI input
+        state_old = self.agent.getState(self.snake_direction, self.snake, self.apple)
+        action =  self.agent.getAction(state_old, is_training) # [forward_score, left_score, right_score]
+        idx = np.argmax(action)
+
+        # Snake moves up 
+        if self.snake_direction == Gameplay.Direction.UP:
+            # AI wants to go forward
+            if idx == 0:
+                self.snake_direction = Gameplay.Direction.UP
+                
+            # AI wants to go left
+            elif idx == 1:
+                self.snake_direction = Gameplay.Direction.LEFT
+                
+            # AI wants to go right
+            else:
+                self.snake_direction = Gameplay.Direction.RIGHT 
+
+        # Snake moves down
+        elif self.snake_direction == Gameplay.Direction.DOWN:
+            # AI wants to go forward
+            if idx == 0:
+                self.snake_direction = Gameplay.Direction.DOWN
+                
+            # AI wants to go left
+            elif idx == 1:
+                self.snake_direction = Gameplay.Direction.RIGHT
+                
+            # AI wants to go right
+            else:
+                self.snake_direction = Gameplay.Direction.LEFT
+
+        # Snake moves left
+        elif self.snake_direction == Gameplay.Direction.LEFT:
+            # AI wants to go forward
+            if idx == 0:
+                self.snake_direction = Gameplay.Direction.LEFT
+                
+            # AI wants to go left
+            elif idx == 1:
+                self.snake_direction = Gameplay.Direction.DOWN
+                
+            # AI wants to go right
+            else:
+                self.snake_direction = Gameplay.Direction.UP 
+
+        # Snake moves right
+        else:
+            # AI wants to go forward
+            if idx == 0:
+                self.snake_direction = Gameplay.Direction.RIGHT
+                
+            # AI wants to go left
+            elif idx == 1:
+                self.snake_direction = Gameplay.Direction.UP
+                
+            # AI wants to go right
+            else:
+                self.snake_direction = Gameplay.Direction.DOWN
+
+        return state_old, action
+    
+    def trainAgent(self, state_old, action, reward, state_new, is_gameover):
+        # Train on short term memory
+        state_new = self.agent.getState(self.snake_direction, self.snake, self.apple)
+        self.agent.trainShortMemory(state_old, action, reward, state_new, is_gameover)
+        self.agent.remember(state_old, action, reward, state_new, is_gameover)
+
+        # Train on long term memory
+        if is_gameover:
+            self.agent.trainLongMemory()
+            self.agent.n_games += 1
+
+            # Save better model
+            if self.score > self.record:
+                self.record = self.score
+                self.agent.model.save(f'{self.record}.pth')
+        
+    def runLogic(self, gamemode, screen):
+        state_old, action = None, None
+
+        # User controls snake
+        if gamemode == Gameplay.Mode.PLAYER:
+            appStage = self.readUserInput(screen, playerMode=True)
+            if appStage != Gameplay.AppStage.GAME: return appStage
+        
+        # AI controls snake
+        elif gamemode == Gameplay.Mode.AI:
+            appStage = self.readUserInput(screen, playerMode=False)
+            if appStage != Gameplay.AppStage.GAME: return appStage
+            self.readAgentInput(is_training=False)
+        
+        # AI trains
+        else:
+            appStage = self.readUserInput(screen, playerMode=False)
+            if appStage != Gameplay.AppStage.GAME: return appStage
+            state_old, action = self.readAgentInput(is_training=True) 
+
+        # Snake moves up 
+        if self.snake_direction == Gameplay.Direction.UP:
+            self.snake.move(self.snake.curr_row - 1, self.snake.curr_col)
+        
+        # Snake moves down
+        elif self.snake_direction == Gameplay.Direction.DOWN:
+            self.snake.move(self.snake.curr_row + 1, self.snake.curr_col)
+        
+        # Snake moves left
+        elif self.snake_direction == Gameplay.Direction.LEFT:
+            self.snake.move(self.snake.curr_row, self.snake.curr_col - 1)
+        
+        # Snake moves right
+        else:
+            self.snake.move(self.snake.curr_row, self.snake.curr_col + 1)
+        
+        reward, is_gameover = 0, False
+        
+        # Snake out of bounds
+        if (self.snake.curr_row < 0 or gui.N_ROWS <= self.snake.curr_row) or \
+            (self.snake.curr_col < 0 or gui.N_COLS <= self.snake.curr_col):
+            is_gameover = True
+            reward = -10
+
+        # Snake collision
+        root = self.snake.next_sprite
+        while root != None:
+            if root.curr_row == self.snake.curr_row and root.curr_col == self.snake.curr_col:
+                is_gameover = True
+                reward = -10
+                break
+            root = root.next_sprite   
+
+        # Snake consumes food
+        if self.apple.row == self.snake.curr_row and self.apple.col == self.snake.curr_col:
+            self.snake.grow()
+            self.spawnApple()
+            reward = 10
+        
+        # Update score
+        self.score += reward
+        
+        # Train AI based on new/old state
+        if gamemode == Gameplay.Mode.AI_TRAINING:
+            state_new = self.agent.getState(self.snake_direction, self.snake, self.apple)
+            self.trainAgent(state_old, action, reward, state_new, is_gameover)
+
+        if is_gameover:
+            # Show gameover screen
+            if not(gamemode == Gameplay.Mode.AI_TRAINING):
+                # Draw gameover
+                gui.drawGameOver(screen, self.score + 10)
+                pygame.display.flip()
+
+                # Freeze screen
+                is_freezed = True
+                while is_freezed:
                     for event in pygame.event.get():
-                        # Window is closed
+                        # User clicks X
                         if event.type == pygame.QUIT:
-                            self.setCurrMode(GameMode.EXIT)
-                            return
-                                
-                        # Go back to menu (SPACE)
+                            return Gameplay.AppStage.EXIT
+                        
+                        # User wants to unpause game
                         elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                            self.setCurrMode(GameMode.MENU)
-                            return
-            else:            
-                # Logic for AI training
-                """
-                ... RESTART GAME
-                """
-                self.resetGame()
+                            is_freezed = False
+                            break
 
+            self.resetParameters()
+        
+        return Gameplay.AppStage.GAME
+    
+    def resetParameters(self):
+        # Reset game parameters
+        self.score = 0
 
-        # Create score label
-        score_surf = self.__bigFont.render(f"Score: {self.__score}", True, 'white')
+        # Initialize snake with size 3
+        self.snake = sprite.SnakeSprite(gui.N_ROWS // 2, gui.N_COLS // 2)
+        self.snake.next_sprite = sprite.SnakeSprite(gui.N_ROWS // 2 + 1, gui.N_COLS // 2)
+        self.snake.next_sprite.next_sprite = sprite.SnakeSprite(gui.N_ROWS // 2 + 2, gui.N_COLS // 2)
+        self.snake_direction = Gameplay.Direction.UP
+                
+        # Initialize apple
+        self.apple = None
+        self.spawnApple()
+        self.is_ai_training = False
 
-        # Render gameplay
-        self.drawBackground(screen)
-        self.__apples.draw(screen)
-        self.__snake.draw(screen)
-        screen.blit(score_surf, (width - (score_surf.get_width() + width // 10), 50))
+    def draw(self, screen, gamemode):
+        # Draw objects
+        gui.drawBackground(screen)
+        self.snake.draw(screen)
+        self.apple.draw(screen)
+
+        # Display score
+        score_surf = gui.BIG_FONT.render(f"Score: {self.score}", True, 'white')
+        screen.blit(score_surf, (gui.WINDOW_SIZE[0] - (score_surf.get_width() + gui.WINDOW_SIZE[0] // 20), 30))
+
+        # Display AI training info
+        if gamemode == Gameplay.Mode.AI_TRAINING:
+            msg_surf = gui.MID_FONT.render('AI: Training', True, 'white')
+            screen.blit(msg_surf, (10, 30))
+        
+        # Display AI playing info
+        elif gamemode == Gameplay.Mode.AI:
+            msg_surf = gui.MID_FONT.render('AI: Playing', True, 'white')
+            screen.blit(msg_surf, (10, 30))
